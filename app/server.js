@@ -26,9 +26,11 @@ function getFeedItemSync(feedItemId) {
   readDocument('users', feedItem.contents.author);
 
   // Resolve comment author.
-  feedItem.comments.forEach((comment) => {
+  feedItem.comments.forEach((comment) => {if (comment != null) {
     comment.author = readDocument('users', comment.author);
-  });
+    comment.likeCounter = comment.likeCounter.map((id) => {
+    return readDocument('users', id);})
+  }});
   return feedItem;
 }
 /**
@@ -49,6 +51,35 @@ export function getFeedData(user, cb) {
   // emulateServerReturn will emulate an asynchronous server operation, which
   // invokes (calls) the "cb" function some time in the future.
   emulateServerReturn(feedData, cb);
+}
+
+export function getCommentData(authorId, commenterId, feedId, cb){
+  // Get the User object with the id "user".
+  var userData = readDocument('users', authorId);
+  // Get the Feed object for the user.
+  var feedData = readDocument('feeds', 4);
+  // Map the Feed's FeedItem references to actual FeedItem objects.
+  // Note: While map takes a callback function as an argument, it is
+  // synchronous, not asynchronous. It calls the callback immediately.
+  //feedData.contents = feedData.contents.map(getFeedItemSync);
+
+  for (var key in feedData.contents){
+    feedData.contents[feedData.contents[key]] = getFeedItemSync(feedData.contents[key]);
+    delete feedData.contents[key];
+  }
+
+  var commentData = feedData.contents[feedId];
+
+  var foundcomment = null;
+  for (var comment in commentData.comments){
+    if (commentData.comments[comment].author._id === commenterId)
+    {
+      foundcomment = commentData.comments[comment];
+      break;
+    }
+  }
+
+  emulateServerReturn(foundcomment, cb);
 }
 
 /**
@@ -100,6 +131,7 @@ export function postComment(feedItemId, author, contents, cb) {
   // document in the database.
   var feedItem = readDocument('feedItems', feedItemId);
   feedItem.comments.push({
+    "likeCounter": [],
     "author": author,
     "contents": contents,
     "postDate": new Date().getTime()
@@ -151,4 +183,31 @@ export function unlikeFeedItem(feedItemId, userId, cb) {
   // Return a resolved version of the likeCounter
   emulateServerReturn(feedItem.likeCounter.map((userId) =>
   readDocument('users', userId)), cb);
+}
+
+export function likeFeedComment(feedItemId, commentId, userId, cb) {
+  var feedItem = readDocument('feedItems', feedItemId);
+
+  var feedComment = feedItem.comments[commentId];
+  feedComment.likeCounter.push(userId);
+
+  writeDocument('feedItems', feedItem);
+
+  emulateServerReturn(feedComment.likeCounter.map((userId) =>
+  readDocument('users', userId)), cb);
+}
+
+export function unlikeFeedComment(feedItemId, commentId, userId, cb) {
+  var feedItem = readDocument('feedItems', feedItemId);
+
+  var userIndex = feedItem.comments[commentId].likeCounter.indexOf(userId);
+
+  if (userIndex !== -1) {
+    feedItem.comments[commentId].likeCounter.splice(userIndex, 1);
+    writeDocument('feedItems', feedItem);
+  }
+
+  emulateServerReturn(feedItem.comments[commentId].likeCounter.map((userId) =>
+    readDocument('users', userId)), cb);
+
 }

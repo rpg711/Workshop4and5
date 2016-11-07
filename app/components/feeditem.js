@@ -140,13 +140,20 @@ export default class FeedItem extends React.Component {
               <hr />
               <CommentThread onPost={(commentText) => this.handleCommentPost(commentText)}>
                 {
+
                   data.comments.map((comment, i) => {
+                    var d = {comment};
+                    d['key'] = i;
+                    d['feedItemId'] = this.state._id;
                     // i is comment's index in comments array
                     return (
                       <Comment key={i}
+                        owner={data.contents.author._id}
                         author={comment.author}
-                        postDate={comment.postDate}>
+                        postDate={comment.postDate}
+                        data={d}>
                         {comment.contents}
+
                       </Comment>
                     );
                   })
